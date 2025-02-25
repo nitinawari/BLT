@@ -32,24 +32,41 @@ class Command(LoggedBaseCommand):
             self.stdout.write(self.style.ERROR(f"Project with ID {project_id} does not exist"))
             return
 
+        # Default to None
         repo = None
-        if hasattr(project, "url") and project.url:
+        
+        # First check if the project has a URL attribute
+        if not hasattr(project, "url"):
+            self.stdout.write(self.style.ERROR(f"Project {project.name} does not have a URL attribute"))
+            return
+            
+        # Then check if the URL is not empty
+        if not project.url:
+            self.stdout.write(self.style.ERROR(f"Project {project.name} has an empty URL"))
+            return
+            
+        # Parse the URL
+        try:
             parsed_url = urlparse(project.url.strip())
             
-            # Fix: Properly validate GitHub domain
-            valid_github_domains = ["github.com", "www.github.com"]
-            if parsed_url.netloc in valid_github_domains:
+            # Ensure it's a GitHub URL by checking the domain exactly
+            # This prevents subdomains like "something.github.com" or "fake-github.com"
+            if parsed_url.netloc == "github.com":
                 repo_path = parsed_url.path.strip("/")
-                if repo_path.count("/") == 1:
+                if repo_path and repo_path.count("/") == 1:  # Ensure it's in "owner/repo" format
                     repo = repo_path
                 else:
-                    self.stdout.write(self.style.ERROR("Invalid GitHub repository URL format."))
+                    self.stdout.write(self.style.ERROR(f"Invalid GitHub repository format: {parsed_url.path}. Expected 'owner/repo'"))
                     return
             else:
-                self.stdout.write(self.style.ERROR("Project URL is not a valid GitHub repository URL."))
+                self.stdout.write(self.style.ERROR(f"Project URL is not a GitHub repository URL: {project.url}"))
                 return
-        else:
-            self.stdout.write(self.style.ERROR("Project does not have a URL."))
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f"Error parsing URL {project.url}: {str(e)}"))
+            return
+            
+        if not repo:
+            self.stdout.write(self.style.ERROR("Could not extract valid GitHub repository information"))
             return
 
         headers = {
