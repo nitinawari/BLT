@@ -32,17 +32,25 @@ class Command(LoggedBaseCommand):
             self.stdout.write(self.style.ERROR(f"Project with ID {project_id} does not exist"))
             return
 
+        repo = None
         if hasattr(project, "url") and project.url:
             parsed_url = urlparse(project.url.strip())
-
-            if parsed_url.netloc.endswith("github.com"):
+            
+            # Fix: Properly validate GitHub domain
+            valid_github_domains = ["github.com", "www.github.com"]
+            if parsed_url.netloc in valid_github_domains:
                 repo_path = parsed_url.path.strip("/")
                 if repo_path.count("/") == 1:
                     repo = repo_path
                 else:
                     self.stdout.write(self.style.ERROR("Invalid GitHub repository URL format."))
+                    return
             else:
                 self.stdout.write(self.style.ERROR("Project URL is not a valid GitHub repository URL."))
+                return
+        else:
+            self.stdout.write(self.style.ERROR("Project does not have a URL."))
+            return
 
         headers = {
             "Authorization": f"token {settings.GITHUB_TOKEN}",
